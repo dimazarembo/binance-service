@@ -1,0 +1,16 @@
+version: '3.9'
+
+services:
+  binance-service:
+    image: dzarembo/binance-service:1.0.0
+    container_name: binance-service
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
