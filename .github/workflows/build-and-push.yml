@@ -3,8 +3,6 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [ main ]
-    tags:
-      - 'v*'    # при желании можно собирать только по тегам
 
 jobs:
   build:
@@ -19,6 +17,9 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+
+      - name: Give execute permission to mvnw
+        run: chmod +x mvnw
 
       - name: Build jar
         run: ./mvnw -q -DskipTests package
