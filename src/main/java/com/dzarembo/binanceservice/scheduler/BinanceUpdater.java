@@ -22,7 +22,7 @@ public class BinanceUpdater {
      * Fetches funding rates from Binance every fixed interval and updates the cache.
      * The update interval is configured using @Scheduled.
      */
-    @Scheduled(fixedRate = 5 * 60 * 1000) //5 min
+    @Scheduled(fixedRate = 1 * 60 * 1000) //5 min
     public void updateFundingRates() {
         log.info("Updating funding rates...");
         cache.putAll(binanceApiClient.fetchFundingRates());
