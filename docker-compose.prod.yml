@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   binance-service:
-    image: dzarembo/binance-service:1.0.0
+    image: dzarembo/binance-service:latest
     container_name: binance-service
     ports:
       - "8081:8081"
@@ -14,3 +14,13 @@ services:
       interval: 20s
       timeout: 5s
       retries: 5
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: 300   # каждые 5 минут
+    restart: always
