@@ -6,10 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -30,30 +27,45 @@ public class BinanceApiClient {
     /**
      * Fetches all current funding rates (premiumIndex endpoint)
      * and combines them with funding interval info (fundingInfo endpoint).
+     * Filters out pairs with fundingRate = 0.0 (inactive or delisted).
      */
     public Map<String, FundingRate> fetchFundingRates() {
         try {
-            // 1️⃣ Fetch base funding data (rate + nextFundingTime)
+            // 1️⃣ Получаем основные данные (ставка + время)
             var rates = restTemplate.getForObject(BASE_URL + "/fapi/v1/premiumIndex", FundingRateResponse[].class);
             if (rates == null) return Map.of();
 
-            // 2️⃣ Fetch fundingInfo (interval adjustments)
+            // 2️⃣ Получаем интервалы фандинга (если есть)
             var info = restTemplate.getForObject(BASE_URL + "/fapi/v1/fundingInfo", FundingInfoResponse[].class);
             Map<String, Integer> intervalMap = Optional.ofNullable(info)
                     .map(Arrays::asList)
                     .orElse(List.of())
                     .stream()
-                    .collect(Collectors.toMap(FundingInfoResponse::symbol, FundingInfoResponse::fundingIntervalHours));
+                    .collect(Collectors.toMap(
+                            FundingInfoResponse::symbol,
+                            FundingInfoResponse::fundingIntervalHours,
+                            (a, b) -> a
+                    ));
 
-            // 3️⃣ Combine results
+            // 3️⃣ Объединяем и фильтруем нулевые фандинги
             return Arrays.stream(rates)
                     .filter(r -> r.lastFundingRate() != null)
-                    .map(r -> new FundingRate(
-                            r.symbol(),
-                            Double.parseDouble(r.lastFundingRate()),
-                            r.nextFundingTime(),
-                            intervalMap.getOrDefault(r.symbol(), DEFAULT_INTERVAL)
-                    ))
+                    .map(r -> {
+                        try {
+                            double rate = Double.parseDouble(r.lastFundingRate());
+                            if (rate == 0.0) return null; // пропускаем нулевые пары
+                            return new FundingRate(
+                                    r.symbol(),
+                                    rate,
+                                    r.nextFundingTime(),
+                                    intervalMap.getOrDefault(r.symbol(), DEFAULT_INTERVAL)
+                            );
+                        } catch (Exception e) {
+                            log.warn("Failed to parse funding rate for symbol {}: {}", r.symbol(), e.getMessage());
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toMap(FundingRate::getSymbol, Function.identity()));
 
         } catch (Exception e) {
